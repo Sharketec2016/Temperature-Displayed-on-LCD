@@ -51,23 +51,19 @@ void setup(){
 
   DDRB |= (1 << DDB2) | (1 << DDB1) | (1 << DDB0);
   DDRD = 0b11111111;
-  PORTB = 0x00;
-
-  // Serial.begin(115200);
-
-  
+  PORTB = 0x00;  
 }
 
 
 
 int main(void){
-  setup();
-  setupADC();
+  setup(); //setups ATMega328P registers for use
+  setupADC(); //setups ADC
 
-  initLCD();
+  initLCD(); //initalizes LCD screen
   
   int counter = 1;
-  while(1){ //this loop will poll thermistor and read back voltage.
+  while(1){ //this loop will poll thermistor, read back voltage, and pass into the printing function the calculated temperature of the thermistor.
     float ans = grabAns();
     Serial.println(calcTemperature(ans));
     printTemperature(calcTemperature(ans));
@@ -75,33 +71,13 @@ int main(void){
   }
 }
 void printTemperature(float temperature){
-  
-
-  // send_character(0x30);
-  // send_character(0x31);
-  // send_character(0x32);
-  // send_character(0x33);
-  // send_character(0x34);
-
-  // send_command(0b11000000);
-
-  // send_character(0x57);
-  // send_character(0x6F);
-  // send_character(0x72);
-  // send_character(0x6C);
-  // send_character(0x64);
-
-  // _delay_ms(100);
-  // send_command(clearLCD);
-  // send_command(returnHome);
-
-  int asciiMAP[] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39};
-  int tempCh = temperature * 100;
-  char tempString[3] = "00";
+  int asciiMAP[] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39};//This is a ASCII map of 0-9 for printing the values to LCD screen.
+  int tempCh = temperature * 100; // changing number from float to 4 digit int.
+  char tempString[3] = "00"; //truncating to 2 digit temp reading.
   
   int stringLength = sizeof(tempString);
 
-  while(tempCh != 0){
+  while(tempCh != 0){ //This while loop loops backwards through the temperature integer R->L and replaces the corresponding char in tempString.
         int tmp = (tempCh % 10);
         if (tempString[stringLength] == '.'){
           tempString[stringLength] = '.';
@@ -112,11 +88,11 @@ void printTemperature(float temperature){
         
     }
     
-    for(int i=0; i<sizeof(tempString)-1; i++){
+    for(int i=0; i<sizeof(tempString)-1; i++){ //Taking tempString, which is the stringified temperature, and passing ascii value to lcd screen.
       int j = tempString[i] - '0';
       send_character(asciiMAP[j]);
     }
-    send_character(0x43);
+    send_character(0x43); //sending ascii  of "C", for celcius reading.
   _delay_ms(100);
   send_command(clearLCD);
   send_command(returnHome);
@@ -124,7 +100,7 @@ void printTemperature(float temperature){
 
 }
 
-void send_command(unsigned int command){ //this function will put the register set pin into a state where we can send command to configure the LCD screen. 
+void send_command(unsigned int command){ //configured the rightSelect and Enable registers for sending over command to configure LCD screen. Order matters here.
   
   PORTB &= ~(1 << RS);
   PORTB &= ~(1 << EN);
@@ -137,7 +113,7 @@ void send_command(unsigned int command){ //this function will put the register s
   PORTB &= ~(1 << EN);
 }
 
-void send_character(unsigned int character){
+void send_character(unsigned int character){//configured the rightSelect and Enable registers for sending over character to display LCD screen. Order matters here.
   PORTB |= (1 << RS);
   PORTB &= ~(1 << EN);
   
@@ -149,16 +125,11 @@ void send_character(unsigned int character){
   PORTB &= ~(1 << EN);
 }
 
-void lcdWriteString(uint8_t theString[]){
-  int i=0;
-  while(theString[i] != 0){
-    send_character(theString[i]);
-    i++;
-    _delay_us(100);
-  }
-}
-
 void initLCD(){
+  /*
+  This function configured the LCD into a specific mode for writing messages for displayment. That being, the functional set and bit mode. The macros are described
+  above before main flow of program in the #defined section
+  */
   send_command(lcd_FunctionReset);
   _delay_ms(10);
   send_command(lcd_FunctionReset);
@@ -175,22 +146,26 @@ void initLCD(){
 
 }
 
-void startTempConversion(){
+void startTempConversion(){//Starts the conversion of voltage values into the ADCSRA register
   ADCSRA |= _BV(ADSC);
 }
 
-void setupADC(){
+void setupADC(){ //Configures the ADC for specific capturing mode, prescaler for which intervals to capture vales, and which ADC to use. 
   ADMUX = 0b00000101;
   ADCSRA = _BV(ADEN) | _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2) | _BV(ADATE);
   ADCSRB = 0x00;
   DIDR0 |= (1 << ADC5D);
 
-
+  //The actual filling of the ADC register starts during this 'startTempConversion' function
   startTempConversion();
 
 }
 
 float grabAns(){
+  /*
+  Grabs the answer from the ADCL and ADCH register, 16-bit resolution, converts into a voltage value, and scales between 0-5V.
+  Since the polling is really fast, an average between 5 measured values is performed before returning the avg.
+  */
   float avg = 0.0;
   for(int i=0; i < 5; i++)
   { 
@@ -208,12 +183,12 @@ float grabAns(){
 
 }
 
-float currResistance(float currVoltage, float refVoltage, float thermistorResistance){
+float currResistance(float currVoltage, float refVoltage, float thermistorResistance){ //Calculates the real time resistance of the 10k thermistor for calculation later
   float currRes = currVoltage / ( (refVoltage - currVoltage) / thermistorResistance);
   return currRes;
 }
 
-float calcTemperature(float sensedVoltage){
+float calcTemperature(float sensedVoltage){ //Calculates the current temperature of a 10k thermistor using appropriate Stein-Hart coefficients. 
   float A = 0.002108508;
   float B = 0.000079792;
   float C = 0.000000653507;
