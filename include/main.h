@@ -9,6 +9,9 @@ float currResistance(float currVoltage, float refVoltage, float thermistorResist
 void printTemperature(float temperature);
 void initLCD();
 void lcdWriteString(uint8_t theString[]);
+void tempReverseString(int* ptrTempScalled, char* ptrtempString, int* ptrstringLength);
+void Celius_to_Farhenheit(float* fahrenheit, float* celcius);
+
 
 #define clearLCD 0x01
 #define returnHome 0x02

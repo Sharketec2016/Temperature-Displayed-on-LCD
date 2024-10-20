@@ -45,6 +45,8 @@
 
 int reg1 = 0x79;
 int reg2 = 0x78;
+int asciiMAP[] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39};//This is a ASCII map of 0-9 for printing the values to LCD screen.
+
 
 void setup(){
   DDRC &= ~(1 << DDC5);
@@ -54,15 +56,12 @@ void setup(){
   PORTB = 0x00;  
 }
 
-
-
 int main(void){
-  setup(); //setups ATMega328P registers for use
+  setup(); //setups ATMega328P registers for use. This configures the necessary registers for input or output for LCD and ADC use.
   setupADC(); //setups ADC
 
   initLCD(); //initalizes LCD screen
   
-  int counter = 1;
   while(1){ //this loop will poll thermistor, read back voltage, and pass into the printing function the calculated temperature of the thermistor.
     float ans = grabAns();
     Serial.println(calcTemperature(ans));
@@ -70,33 +69,72 @@ int main(void){
 
   }
 }
-void printTemperature(float temperature){
-  int asciiMAP[] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39};//This is a ASCII map of 0-9 for printing the values to LCD screen.
-  int tempCh = temperature * 100; // changing number from float to 4 digit int.
-  char tempString[3] = "00"; //truncating to 2 digit temp reading.
-  
-  int stringLength = sizeof(tempString);
 
-  while(tempCh != 0){ //This while loop loops backwards through the temperature integer R->L and replaces the corresponding char in tempString.
-        int tmp = (tempCh % 10);
-        if (tempString[stringLength] == '.'){
-          tempString[stringLength] = '.';
-        }
-        tempString[stringLength] = (char)asciiMAP[tmp];
-        tempCh = (tempCh - tmp) / 10;
-        stringLength -= 1;
-        
-    }
-    
-    for(int i=0; i<sizeof(tempString)-1; i++){ //Taking tempString, which is the stringified temperature, and passing ascii value to lcd screen.
-      int j = tempString[i] - '0';
+
+
+
+void printTemperature(float temperature){
+  int tempCh = temperature * 100; // changing number from float to 4 digit int. This is still within celcius units
+  float fahrenheitTemperature;
+
+  Celius_to_Farhenheit(&fahrenheitTemperature, &temperature);
+
+  char tempCelciusString[3] = "00"; //truncating to 2 digit temp reading.
+  int stringLength = sizeof(tempCelciusString);
+
+  tempReverseString(&tempCh, &tempCelciusString[0], &stringLength);
+  
+  for(int i=0; i<sizeof(tempCelciusString)-1; i++){ //Taking tempString, which is the stringified temperature, and passing ascii value to lcd screen.
+    int j = tempCelciusString[i] - '0';
+    send_character(asciiMAP[j]);
+  }
+  
+  send_character(0x43); //sending ascii  of "C", for celcius unit casting.
+  send_character(0x20); //ascii "space"
+  send_character(0x6F); //ascii "o"
+  send_character(0x72); //ascii "r"
+  send_character(0x20); //ascii "space"
+  
+  int farhenheitTempChange = fahrenheitTemperature * 100;
+  char tempFarhenString[3] = "00";
+  int stringFarhenLength = sizeof(tempFarhenString);
+
+  tempReverseString(&farhenheitTempChange, &tempFarhenString[0], &stringFarhenLength);
+
+  for(int i=0; i<sizeof(tempFarhenString)-1; i++){ //Taking tempString, which is the stringified temperature, and passing ascii value to lcd screen.
+      int j = tempFarhenString[i] - '0';
       send_character(asciiMAP[j]);
     }
-    send_character(0x43); //sending ascii  of "C", for celcius reading.
+  send_character(0x46);
+  
   _delay_ms(100);
   send_command(clearLCD);
   send_command(returnHome);
   
+
+}
+
+
+void tempReverseString(int* ptrTempScaled, char* ptrtempString, int* ptrstringLength){
+  /*
+  This function takes in three parameters;
+  int* ptrTempScaled = This is the temperature float scaled from xx.xx -> xxxx a four digit integer.
+  char* ptrtempString = This is a pointer to the temperary string "00" that is replaces char by char from R->L
+  int* ptrstringLength = Pointer to the length of the string. This is used to iterate tempString backwards, replacing each character.
+
+  Being a void function, nothing is returned. Ptr's are passed as input to the function for manipulation of values within memory, freeing up some memory and making 
+  cleaner code. 
+  */
+  while(*ptrTempScaled != 0){ //This while loop loops backwards through the temperature integer R->L and replaces the corresponding char in tempString.
+          int lastDigit = (*ptrTempScaled % 10);
+          if (*(ptrtempString + *ptrstringLength) == '.'){
+            *(ptrtempString + *ptrstringLength) = '.';
+          }
+          
+          *(ptrtempString + *ptrstringLength) = (char)asciiMAP[lastDigit];
+          *ptrTempScaled = (*ptrTempScaled - lastDigit) / 10;
+          *ptrstringLength -= 1;
+      }
 
 }
 
@@ -199,3 +237,6 @@ float calcTemperature(float sensedVoltage){ //Calculates the current temperature
   return (1/tempVal - 273.15);
 }
 
+void Celius_to_Farhenheit(float* fahrenheit, float* celcius){
+  *fahrenheit = *celcius * 9/5 + 32;
+}
