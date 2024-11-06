@@ -189,10 +189,10 @@ void startTempConversion(){//Starts the conversion of voltage values into the AD
 }
 
 void setupADC(){ //Configures the ADC for specific capturing mode, prescaler for which intervals to capture vales, and which ADC to use. 
-  ADMUX = 0b00000101;
-  ADCSRA = _BV(ADEN) | _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2) | _BV(ADATE);
-  ADCSRB = 0x00;
-  DIDR0 |= (1 << ADC5D);
+  ADMUX = 0b00000101; //specify which ADC we want. Here it is ADC5 on PC5 for Arduino nano and Uno.
+  ADCSRA = _BV(ADEN) | _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2) | _BV(ADATE); // ADEN enables the ADC, ADATE puts ADC into Auto Trigger Enabled mode, ADPS0-2 determine the clock prescaler, here its Clock MHz/128
+  ADCSRB = 0x00; //This sets the trigger source for the ADC to acquire a signal, and fill the ADCL/H registers. Here, it is put into free running mode, thus it will trigger at every rising edge of the prescaled clock signal.
+  DIDR0 |= (1 << ADC5D); //disables the ADC5 input buffer
 
   //The actual filling of the ADC register starts during this 'startTempConversion' function
   startTempConversion();
